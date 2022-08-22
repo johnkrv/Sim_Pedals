@@ -1,0 +1,154 @@
+#include <HX711.h>
+#include <Joystick.h>
+Joystick_ Joystick(JOYSTICK_DEFAULT_REPORT_ID,JOYSTICK_TYPE_MULTI_AXIS,4,0,
+true, false, true,
+false, false, false,
+false, true,
+false, true, false);
+const unsigned long gcButtonDelta = 500;
+void testSingleButtonPush(unsigned int button)
+{
+  if (button > 0)
+  {
+    Joystick.releaseButton(button - 1);
+  }
+  if (button < 4)
+  {
+    Joystick.pressButton(button);
+  }
+}
+
+void testMultiButtonPush(unsigned int currentStep) 
+{
+  for (int button = 0; button < 4; button++)
+  {
+    if ((currentStep == 0) || (currentStep == 2))
+    {
+      if ((button % 2) == 0)
+      {
+        Joystick.pressButton(button);
+      } else if (currentStep != 2)
+      {
+        Joystick.releaseButton(button);
+      }
+    } // if ((currentStep == 0) || (currentStep == 2))
+    if ((currentStep == 1) || (currentStep == 2))
+    {
+      if ((button % 2) != 0)
+      {
+        Joystick.pressButton(button);
+      } else if (currentStep != 2)
+      {
+        Joystick.releaseButton(button);
+      }
+    } // if ((currentStep == 1) || (currentStep == 2))
+    if (currentStep == 3)
+    {
+      Joystick.releaseButton(button);
+    } // if (currentStep == 3)
+  } // for (int button = 0; button < 32; button++)
+}
+float calibration_factor = -7050;//break
+float calibration_factor1 = -7050;//clutch
+float calibration_factor2 = 280000;//gas
+float calibration_factor3 = 280000;//handbreak
+#define DOUT  3
+#define CLK  2
+#define DOUT1  5
+#define CLK1  4
+#define DOUT2  7
+#define CLK2  6
+#define DOUT3  9
+#define CLK3  8
+HX711 scale1;
+HX711 scale2;
+HX711 scale3;
+HX711 scale4;
+int gas = 0;
+int lastGasValue = 0;
+int brake = 0;
+int lastBrakeValue = 0;
+int clutch = 0;
+int lastClutchValue = 0;
+int handbrake = 0;
+int lastHandbrakeValue = 0;
+void setup() {
+  scale1.begin(3, 2);//gas
+  scale2.begin(5, 4);//brake
+  scale3.begin(7, 6);//clutch
+  scale4.begin(9, 8);//handbreak
+  scale1.set_scale();
+  scale2.set_scale();
+  scale3.set_scale();
+  scale4.set_scale();
+  scale1.tare();
+  scale2.tare();
+  scale3.tare();
+  scale4.tare();
+  long zero_factor = scale1.read_average();
+  long zero_factor1 = scale2.read_average();
+  long zero_factor2 = scale3.read_average();
+  long zero_factor3 = scale4.read_average();
+  pinMode(10, INPUT_PULLUP);
+  pinMode(11, INPUT_PULLUP);
+  pinMode(12, INPUT_PULLUP);      
+  Joystick.begin(); 
+  Joystick.setXAxisRange(0, 1023);
+  Joystick.setZAxisRange(0, 1023);
+  Joystick.setThrottleRange(0, 1023);
+  Joystick.setBrakeRange(0, 1023);
+}
+ 
+  
+void loop() {
+  scale1.set_scale(calibration_factor2);//gas
+  scale2.set_scale(calibration_factor);//brake
+  scale3.set_scale(calibration_factor1);//clutch
+  scale4.set_scale(calibration_factor3);//handbreak
+  Joystick.setButton(1, !digitalRead(11));
+  Joystick.setButton(2, !digitalRead(12));
+  Joystick.setButton(3, !digitalRead(10));
+
+  handbrake = scale4.get_units();
+ 
+    if (handbrake < 0 or handbrake < 1) {
+      handbrake = 0;
+  }
+ 
+    if (lastHandbrakeValue != handbrake) {
+      Joystick.setXAxis(handbrake);
+      lastHandbrakeValue = handbrake;
+  }
+
+   gas = scale1.get_units();
+ 
+    if (gas < 0 or gas < 1) {
+      gas = 0;
+  }
+ 
+    if (lastGasValue != gas) {
+      Joystick.setThrottle(gas);
+      lastGasValue = gas;
+  }
+
+  brake = scale2.get_units();
+ 
+    if (brake < 0 or brake < 1) {
+      brake = 0;
+  }
+ 
+    if (lastBrakeValue != brake) {
+      Joystick.setBrake(brake);
+      lastBrakeValue = brake;
+  }
+  clutch = scale3.get_units();
+ 
+    if (clutch < 0 or clutch < 1) {
+      clutch = 0;
+  }
+ 
+   if (lastClutchValue != clutch) {
+     Joystick.setZAxis(clutch);
+     lastClutchValue = clutch;
+  }  
+}
